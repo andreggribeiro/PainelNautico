@@ -2,7 +2,7 @@ import sys
 import math
 
 from PySide6.QtCore import Qt, QPointF
-from PySide6.QtGui import QPainter, QPen, QBrush, QFont
+from PySide6.QtGui import QPainter, QPen, QBrush, QFont, QColor, QRadialGradient
 from PySide6.QtWidgets import QApplication, QWidget, QLabel
 
 
@@ -12,15 +12,7 @@ from PySide6.QtWidgets import QApplication, QWidget, QLabel
 
 class Gauge(QWidget):
 
-    def __init__(
-        self,
-        titulo,
-        valor,
-        unidade,
-        minimo,
-        maximo,
-        tamanho
-    ):
+    def __init__(self, titulo, valor, unidade, minimo, maximo, tamanho=300):
         super().__init__()
 
         self.titulo = titulo
@@ -36,75 +28,109 @@ class Gauge(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        w = self.width()
-        h = self.height()
+        cx = self.width() / 2
+        cy = self.height() / 2
 
-        cx = w / 2
-        cy = h / 2
+        raio = min(self.width(), self.height()) / 2 - 8
 
-        raio = min(w, h) * 0.45
+        # =====================================================
+        # 1. SOMBRA EXTERNA
+        # =====================================================
 
-        # ----------------------------------------------------
-        # FUNDO DO INSTRUMENTO
-        # ----------------------------------------------------
-
-        painter.setBrush(QBrush(Qt.black))
         painter.setPen(Qt.NoPen)
 
+        painter.setBrush(QBrush(Qt.black))
+
         painter.drawEllipse(
-            QPointF(cx, cy),
-            raio,
+            int(cx - raio + 5),
+            int(cy - raio + 7),
+            int(raio * 2),
+            int(raio * 2)
+        )
+
+        # =====================================================
+        # 2. ARO EXTERNO
+        # =====================================================
+
+        gradiente_aro = QRadialGradient(
+            cx,
+            cy,
             raio
         )
 
-        # ----------------------------------------------------
-        # BORDA EXTERNA
-        # ----------------------------------------------------
+        gradiente_aro.setColorAt(0.0, QColor("#555555"))
+        gradiente_aro.setColorAt(0.72, QColor("#303030"))
+        gradiente_aro.setColorAt(0.88, QColor("#888888"))
+        gradiente_aro.setColorAt(1.0, QColor("#151515"))
 
-        pen = QPen(Qt.white)
-        pen.setWidth(3)
-
-        painter.setPen(pen)
-        painter.setBrush(Qt.NoBrush)
+        painter.setBrush(QBrush(gradiente_aro))
+        painter.setPen(QPen(QColor("#AAAAAA"), 2))
 
         painter.drawEllipse(
-            QPointF(cx, cy),
-            raio,
-            raio
+            int(cx - raio),
+            int(cy - raio),
+            int(raio * 2),
+            int(raio * 2)
         )
 
-        # ----------------------------------------------------
-        # ESCALA
-        # ----------------------------------------------------
+        # =====================================================
+        # 3. MOSTRADOR INTERNO
+        # =====================================================
 
-        painter.setPen(QPen(Qt.white, 2))
+        raio_interno = raio - 12
 
-        quantidade = 10
+        gradiente_mostrador = QRadialGradient(
+            cx - 25,
+            cy - 30,
+            raio_interno
+        )
 
-        for i in range(quantidade + 1):
+        gradiente_mostrador.setColorAt(0.0, QColor("#252525"))
+        gradiente_mostrador.setColorAt(0.65, QColor("#101010"))
+        gradiente_mostrador.setColorAt(1.0, QColor("#030303"))
 
-            proporcao = i / quantidade
+        painter.setBrush(QBrush(gradiente_mostrador))
+        painter.setPen(QPen(QColor("#080808"), 2))
 
-            angulo_graus = 135 + proporcao * 270
+        painter.drawEllipse(
+            int(cx - raio_interno),
+            int(cy - raio_interno),
+            int(raio_interno * 2),
+            int(raio_interno * 2)
+        )
+
+        # =====================================================
+        # 4. ESCALA
+        # =====================================================
+
+        painter.setPen(QPen(Qt.white, 3))
+
+        for i in range(11):
+
+            valor = self.minimo + (
+                (self.maximo - self.minimo) / 10
+            ) * i
+
+            angulo_graus = 135 + (270 / 10) * i
             angulo = math.radians(angulo_graus)
 
-            raio_externo = raio * 0.91
-            raio_interno = raio * 0.82
+            raio_externo = raio_interno - 8
+            raio_interno_tick = raio_interno - 22
 
-            x1 = cx + math.cos(angulo) * raio_interno
-            y1 = cy + math.sin(angulo) * raio_interno
+            x1 = cx + math.cos(angulo) * raio_externo
+            y1 = cy + math.sin(angulo) * raio_externo
 
-            x2 = cx + math.cos(angulo) * raio_externo
-            y2 = cy + math.sin(angulo) * raio_externo
+            x2 = cx + math.cos(angulo) * raio_interno_tick
+            y2 = cy + math.sin(angulo) * raio_interno_tick
 
             painter.drawLine(
                 QPointF(x1, y1),
                 QPointF(x2, y2)
             )
 
-        # ----------------------------------------------------
-        # PONTEIRO
-        # ----------------------------------------------------
+        # =====================================================
+        # 5. PONTEIRO
+        # =====================================================
 
         proporcao = (
             self.valor - self.minimo
@@ -112,99 +138,121 @@ class Gauge(QWidget):
             self.maximo - self.minimo
         )
 
-        angulo_graus = 135 + proporcao * 270
+        proporcao = max(0.0, min(1.0, proporcao))
+
+        angulo_graus = 135 + 270 * proporcao
         angulo = math.radians(angulo_graus)
 
-        raio_ponteiro = raio * 0.67
+        comprimento = raio_interno - 38
 
-        px = cx + math.cos(angulo) * raio_ponteiro
-        py = cy + math.sin(angulo) * raio_ponteiro
+        px = cx + math.cos(angulo) * comprimento
+        py = cy + math.sin(angulo) * comprimento
 
-        pen = QPen(Qt.red)
-        pen.setWidth(5)
+        # Sombra do ponteiro
+        painter.setPen(
+            QPen(QColor("#000000"), 8)
+        )
 
-        painter.setPen(pen)
+        painter.drawLine(
+            QPointF(cx + 3, cy + 4),
+            QPointF(px + 3, py + 4)
+        )
+
+        # Ponteiro
+        painter.setPen(
+            QPen(QColor("#E00000"), 5)
+        )
 
         painter.drawLine(
             QPointF(cx, cy),
             QPointF(px, py)
         )
 
-        # ----------------------------------------------------
-        # CENTRO DO PONTEIRO
-        # ----------------------------------------------------
+        # =====================================================
+        # 6. EIXO DO PONTEIRO
+        # =====================================================
 
-        painter.setBrush(QBrush(Qt.white))
-        painter.setPen(Qt.NoPen)
+        painter.setBrush(
+            QBrush(QColor("#AAAAAA"))
+        )
+
+        painter.setPen(
+            QPen(QColor("#333333"), 2)
+        )
 
         painter.drawEllipse(
-            QPointF(cx, cy),
-            7,
-            7
+            int(cx - 9),
+            int(cy - 9),
+            18,
+            18
         )
 
-        # ----------------------------------------------------
-        # TÍTULO
-        # ----------------------------------------------------
+        painter.setBrush(
+            QBrush(QColor("#DD0000"))
+        )
 
-        fonte = QFont("Arial", 17)
-        fonte.setBold(True)
+        painter.drawEllipse(
+            int(cx - 4),
+            int(cy - 4),
+            8,
+            8
+        )
 
-        painter.setFont(fonte)
+        # =====================================================
+        # 7. VALOR
+        # =====================================================
+
         painter.setPen(QPen(Qt.white))
-
-        painter.drawText(
-            0,
-            int(cy - raio * 0.55),
-            w,
-            30,
-            Qt.AlignCenter,
-            self.titulo
+        painter.setFont(
+            QFont("Arial", 24, QFont.Bold)
         )
 
-        # ----------------------------------------------------
-        # VALOR
-        # ----------------------------------------------------
-
-        fonte = QFont("Arial", 25)
-        fonte.setBold(True)
-
-        painter.setFont(fonte)
-
-        if self.titulo == "VOLTAGEM":
-
-            texto = f"{self.valor:.1f}"
-
-        else:
-
-            texto = f"{self.valor:.0f}"
+        texto_valor = str(int(self.valor))
 
         painter.drawText(
-            0,
-            int(cy + raio * 0.30),
-            w,
+            int(cx - 60),
+            int(cy + 55),
+            120,
             40,
             Qt.AlignCenter,
-            texto
+            texto_valor
         )
 
-        # ----------------------------------------------------
-        # UNIDADE
-        # ----------------------------------------------------
+        # =====================================================
+        # 8. UNIDADE
+        # =====================================================
 
-        fonte = QFont("Arial", 11)
-
-        painter.setFont(fonte)
+        painter.setFont(
+            QFont("Arial", 11)
+        )
 
         painter.drawText(
-            0,
-            int(cy + raio * 0.58),
-            w,
+            int(cx - 50),
+            int(cy + 82),
+            100,
             25,
             Qt.AlignCenter,
             self.unidade
         )
 
+        # =====================================================
+        # 9. TÍTULO
+        # =====================================================
+
+        painter.setFont(
+            QFont("Arial", 16, QFont.Bold)
+        )
+
+        painter.drawText(
+            int(cx - 70),
+            int(cy - 70),
+            140,
+            30,
+            Qt.AlignCenter,
+            self.titulo
+        )
+
+        painter.end()
 
 # ============================================================
 # TRIM
