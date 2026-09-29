@@ -53,15 +53,16 @@ class Gauge(QWidget):
         # =====================================================
 
         gradiente_aro = QRadialGradient(
-            cx,
-            cy,
-            raio
-        )
+        cx - 20,
+        cy - 25,
+        raio
+    )
 
-        gradiente_aro.setColorAt(0.0, QColor("#555555"))
-        gradiente_aro.setColorAt(0.72, QColor("#303030"))
-        gradiente_aro.setColorAt(0.88, QColor("#888888"))
-        gradiente_aro.setColorAt(1.0, QColor("#151515"))
+        gradiente_aro.setColorAt(0.0, QColor("#707070"))
+        gradiente_aro.setColorAt(0.55, QColor("#404040"))
+        gradiente_aro.setColorAt(0.78, QColor("#909090"))
+        gradiente_aro.setColorAt(0.90, QColor("#353535"))
+        gradiente_aro.setColorAt(1.0, QColor("#111111"))
 
         painter.setBrush(QBrush(gradiente_aro))
         painter.setPen(QPen(QColor("#AAAAAA"), 2))
@@ -80,17 +81,18 @@ class Gauge(QWidget):
         raio_interno = raio - 12
 
         gradiente_mostrador = QRadialGradient(
-            cx - 25,
-            cy - 30,
-            raio_interno
-        )
+        cx - 35,
+        cy - 40,
+        raio_interno
+    )
 
-        gradiente_mostrador.setColorAt(0.0, QColor("#252525"))
-        gradiente_mostrador.setColorAt(0.65, QColor("#101010"))
-        gradiente_mostrador.setColorAt(1.0, QColor("#030303"))
+        gradiente_mostrador.setColorAt(0.0, QColor("#4A4A4A"))
+        gradiente_mostrador.setColorAt(0.35, QColor("#303030"))
+        gradiente_mostrador.setColorAt(0.70, QColor("#1C1C1C"))
+        gradiente_mostrador.setColorAt(1.0, QColor("#0C0C0C"))
 
         painter.setBrush(QBrush(gradiente_mostrador))
-        painter.setPen(QPen(QColor("#080808"), 2))
+        painter.setPen(QPen(QColor("#080808"), 3))
 
         painter.drawEllipse(
             int(cx - raio_interno),
@@ -639,7 +641,7 @@ class Painel(QWidget):
         # ----------------------------------------------------
 
         titulo = QLabel(
-            "PAINEL NÁUTICO",
+            "Embarcação: BUSCAPÉ I",
             self
         )
 
