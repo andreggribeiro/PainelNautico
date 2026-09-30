@@ -105,7 +105,7 @@ class Gauge(QWidget):
         # 4. ESCALA
         # =====================================================
 
-        painter.setPen(QPen(Qt.black, 3))
+        painter.setPen(QPen(QColor("black"), 3))
 
         for i in range(11):
 
@@ -256,6 +256,268 @@ class Gauge(QWidget):
         )
 
         painter.end()
+
+# ============================================================
+# TRIM
+# ============================================================
+
+
+
+class RPMArcGauge(QWidget):
+
+    def __init__(self, valor=1200, tamanho=430):
+        super().__init__()
+
+        self.valor = valor
+        self.minimo = 0
+        self.maximo = 6000
+
+        self.setFixedSize(tamanho, tamanho)
+
+    def paintEvent(self, event):
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        cx = self.width() / 2
+        cy = self.height() / 2
+
+        # =====================================================
+        # CONFIGURAÇÃO DO ARCO
+        # =====================================================
+
+        raio = min(self.width(), self.height()) / 2 - 28
+
+        # 270 graus de arco:
+        # início inferior esquerdo -> topo -> inferior direito
+        angulo_inicio = 135
+        angulo_total = 270
+
+        quantidade_segmentos = 30
+        espessura = 22
+        gap = 3
+
+        # =====================================================
+        # SOMBRA EXTERNA
+        # =====================================================
+
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QBrush(QColor("#707070")))
+
+        painter.drawEllipse(
+            int(cx - raio + 7),
+            int(cy - raio + 9),
+            int(raio * 2),
+            int(raio * 2)
+        )
+
+        # =====================================================
+        # ARO EXTERNO
+        # =====================================================
+
+        raio_aro = raio + 12
+
+        gradiente_aro = QRadialGradient(
+            cx - 20,
+            cy - 25,
+            raio_aro
+        )
+
+        gradiente_aro.setColorAt(0.0, QColor("#A0A0A0"))
+        gradiente_aro.setColorAt(0.55, QColor("#555555"))
+        gradiente_aro.setColorAt(0.75, QColor("#B0B0B0"))
+        gradiente_aro.setColorAt(0.90, QColor("#404040"))
+        gradiente_aro.setColorAt(1.0, QColor("#181818"))
+
+        painter.setBrush(QBrush(gradiente_aro))
+        painter.setPen(QPen(QColor("#BBBBBB"), 2))
+
+        painter.drawEllipse(
+            int(cx - raio_aro),
+            int(cy - raio_aro),
+            int(raio_aro * 2),
+            int(raio_aro * 2)
+        )
+
+        # =====================================================
+        # MOSTRADOR INTERNO BRANCO
+        # =====================================================
+
+        raio_interno = raio_aro - 12
+
+        gradiente_mostrador = QRadialGradient(
+            cx - 35,
+            cy - 40,
+            raio_interno
+        )
+
+        gradiente_mostrador.setColorAt(0.0, QColor("#FFFFFF"))
+        gradiente_mostrador.setColorAt(0.60, QColor("#F5F5F5"))
+        gradiente_mostrador.setColorAt(0.85, QColor("#E2E2E2"))
+        gradiente_mostrador.setColorAt(1.0, QColor("#C0C0C0"))
+
+        painter.setBrush(QBrush(gradiente_mostrador))
+        painter.setPen(QPen(QColor("#707070"), 2))
+
+        painter.drawEllipse(
+            int(cx - raio_interno),
+            int(cy - raio_interno),
+            int(raio_interno * 2),
+            int(raio_interno * 2)
+        )
+
+        # =====================================================
+        # SEGMENTOS DO RPM
+        # =====================================================
+
+        proporcao = (
+            self.valor - self.minimo
+        ) / (
+            self.maximo - self.minimo
+        )
+
+        proporcao = max(0.0, min(1.0, proporcao))
+
+        segmentos_preenchidos = int(
+            proporcao * quantidade_segmentos + 0.5
+        )
+
+        # QPainter.drawArc usa 1/16 de grau.
+        # Cada segmento ocupa uma pequena faixa do arco.
+        graus_por_segmento = angulo_total / quantidade_segmentos
+
+        for i in range(quantidade_segmentos):
+
+            angulo_segmento = (
+                angulo_inicio
+                + i * graus_por_segmento
+                + gap / 2
+            )
+
+            abertura = graus_por_segmento - gap
+
+            # Centro do segmento em termos de RPM
+            valor_segmento = (
+                self.minimo
+                + (i + 0.5)
+                / quantidade_segmentos
+                * (self.maximo - self.minimo)
+            )
+
+            # -------------------------------------------------
+            # Faixas de rotação
+            # -------------------------------------------------
+
+            if valor_segmento < 4000:
+                cor = QColor("#18A638")       # VERDE
+            elif valor_segmento < 5000:
+                cor = QColor("#E0A400")       # AMARELO
+            else:
+                cor = QColor("#D00000")       # VERMELHO
+
+            if i < segmentos_preenchidos:
+                painter.setPen(
+                    QPen(cor, espessura, Qt.SolidLine, Qt.RoundCap)
+                )
+            else:
+                # Segmento vazio: apenas contorno discreto
+                painter.setPen(
+                    QPen(QColor("#A0A0A0"), 3, Qt.SolidLine, Qt.RoundCap)
+                )
+
+            painter.drawArc(
+                int(cx - raio),
+                int(cy - raio),
+                int(raio * 2),
+                int(raio * 2),
+                int(angulo_segmento * 16),
+                int(-abertura * 16)
+            )
+
+        # =====================================================
+        # MARCAÇÕES NUMÉRICAS
+        # =====================================================
+
+        painter.setPen(QPen(Qt.black))
+        painter.setFont(QFont("Arial", 12, QFont.Bold))
+
+        for valor_marcacao in range(0, 6001, 1000):
+
+            proporcao_marcacao = (
+                valor_marcacao - self.minimo
+            ) / (
+                self.maximo - self.minimo
+            )
+
+            angulo_graus = (
+                angulo_inicio
+                + angulo_total * proporcao_marcacao
+            )
+
+            angulo = math.radians(angulo_graus)
+
+            raio_numero = raio_interno - 48
+
+            x = cx + math.cos(angulo) * raio_numero
+            y = cy + math.sin(angulo) * raio_numero
+
+            painter.drawText(
+                int(x - 30),
+                int(y - 12),
+                60,
+                24,
+                Qt.AlignCenter,
+                str(valor_marcacao)
+            )
+
+        # =====================================================
+        # VALOR ATUAL
+        # =====================================================
+
+        painter.setPen(QPen(Qt.black))
+        painter.setFont(QFont("Arial", 30, QFont.Bold))
+
+        painter.drawText(
+            int(cx - 80),
+            int(cy + 45),
+            160,
+            45,
+            Qt.AlignCenter,
+            str(int(self.valor))
+        )
+
+        # =====================================================
+        # UNIDADE
+        # =====================================================
+
+        painter.setFont(QFont("Arial", 12))
+
+        painter.drawText(
+            int(cx - 50),
+            int(cy + 75),
+            100,
+            25,
+            Qt.AlignCenter,
+            "RPM"
+        )
+
+        # =====================================================
+        # TÍTULO
+        # =====================================================
+
+        painter.setFont(QFont("Arial", 18, QFont.Bold))
+
+        painter.drawText(
+            int(cx - 70),
+            int(cy - 45),
+            140,
+            30,
+            Qt.AlignCenter,
+            "RPM"
+        )
+
+        painter.end()
+
 
 # ============================================================
 # TRIM
@@ -567,13 +829,9 @@ class Painel(QWidget):
         # RPM
         # ----------------------------------------------------
 
-        self.rpm = Gauge(
-            "RPM",
-            1200,
-            "RPM",
-            0,
-            6000,
-            430
+        self.rpm = RPMArcGauge(
+            valor=1200,
+            tamanho=430
         )
 
         self.rpm.setParent(self)
